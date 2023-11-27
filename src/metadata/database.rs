@@ -39,10 +39,10 @@ lazy_static! {
 /// Representation of a database of metadata for phone number.
 #[derive(Clone, Debug)]
 pub struct Database {
-    cache: Arc<Mutex<RegexCache>>,
-    by_id: FnvHashMap<String, Arc<super::Metadata>>,
-    by_code: FnvHashMap<u16, Vec<Arc<super::Metadata>>>,
-    regions: FnvHashMap<u16, Vec<String>>,
+    pub cache: Arc<Mutex<RegexCache>>,
+    pub by_id: FnvHashMap<String, Arc<super::Metadata>>,
+    pub by_code: FnvHashMap<u16, Vec<Arc<super::Metadata>>>,
+    pub regions: FnvHashMap<u16, Vec<String>>,
 }
 
 impl Database {

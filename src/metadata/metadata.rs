@@ -21,43 +21,43 @@ use regex_cache::CachedRegex;
 /// Phone number metadata.
 #[derive(Clone, Debug)]
 pub struct Metadata {
-    pub(crate) descriptors: Descriptors,
-    pub(crate) id: String,
-    pub(crate) country_code: u16,
+    pub descriptors: Descriptors,
+    pub id: String,
+    pub country_code: u16,
 
-    pub(crate) international_prefix: Option<CachedRegex>,
-    pub(crate) preferred_international_prefix: Option<String>,
-    pub(crate) national_prefix: Option<String>,
-    pub(crate) preferred_extension_prefix: Option<String>,
-    pub(crate) national_prefix_for_parsing: Option<CachedRegex>,
-    pub(crate) national_prefix_transform_rule: Option<String>,
+    pub international_prefix: Option<CachedRegex>,
+    pub preferred_international_prefix: Option<String>,
+    pub national_prefix: Option<String>,
+    pub preferred_extension_prefix: Option<String>,
+    pub national_prefix_for_parsing: Option<CachedRegex>,
+    pub national_prefix_transform_rule: Option<String>,
 
-    pub(crate) formats: Vec<Format>,
-    pub(crate) international_formats: Vec<Format>,
-    pub(crate) main_country_for_code: bool,
-    pub(crate) leading_digits: Option<CachedRegex>,
-    pub(crate) mobile_number_portable: bool,
+    pub formats: Vec<Format>,
+    pub international_formats: Vec<Format>,
+    pub main_country_for_code: bool,
+    pub leading_digits: Option<CachedRegex>,
+    pub mobile_number_portable: bool,
 }
 
 /// Descriptors for various types of phone number.
 #[derive(Clone, Debug)]
 pub struct Descriptors {
-    pub(crate) general: Descriptor,
-    pub(crate) fixed_line: Option<Descriptor>,
-    pub(crate) mobile: Option<Descriptor>,
-    pub(crate) toll_free: Option<Descriptor>,
-    pub(crate) premium_rate: Option<Descriptor>,
-    pub(crate) shared_cost: Option<Descriptor>,
-    pub(crate) personal_number: Option<Descriptor>,
-    pub(crate) voip: Option<Descriptor>,
-    pub(crate) pager: Option<Descriptor>,
-    pub(crate) uan: Option<Descriptor>,
-    pub(crate) emergency: Option<Descriptor>,
-    pub(crate) voicemail: Option<Descriptor>,
-    pub(crate) short_code: Option<Descriptor>,
-    pub(crate) standard_rate: Option<Descriptor>,
-    pub(crate) carrier: Option<Descriptor>,
-    pub(crate) no_international: Option<Descriptor>,
+    pub general: Descriptor,
+    pub fixed_line: Option<Descriptor>,
+    pub mobile: Option<Descriptor>,
+    pub toll_free: Option<Descriptor>,
+    pub premium_rate: Option<Descriptor>,
+    pub shared_cost: Option<Descriptor>,
+    pub personal_number: Option<Descriptor>,
+    pub voip: Option<Descriptor>,
+    pub pager: Option<Descriptor>,
+    pub uan: Option<Descriptor>,
+    pub emergency: Option<Descriptor>,
+    pub voicemail: Option<Descriptor>,
+    pub short_code: Option<Descriptor>,
+    pub standard_rate: Option<Descriptor>,
+    pub carrier: Option<Descriptor>,
+    pub no_international: Option<Descriptor>,
 }
 
 impl Metadata {

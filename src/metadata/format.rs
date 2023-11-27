@@ -17,13 +17,13 @@ use regex_cache::CachedRegex;
 /// Description of a phone number format.
 #[derive(Clone, Debug)]
 pub struct Format {
-    pub(crate) pattern: CachedRegex,
-    pub(crate) format: String,
+    pub pattern: CachedRegex,
+    pub format: String,
 
-    pub(crate) leading_digits: Vec<CachedRegex>,
-    pub(crate) national_prefix: Option<String>,
-    pub(crate) national_prefix_optional: bool,
-    pub(crate) domestic_carrier: Option<String>,
+    pub leading_digits: Vec<CachedRegex>,
+    pub national_prefix: Option<String>,
+    pub national_prefix_optional: bool,
+    pub domestic_carrier: Option<String>,
 }
 
 impl Format {
