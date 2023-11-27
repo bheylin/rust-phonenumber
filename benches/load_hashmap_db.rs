@@ -22,3 +22,10 @@ fn get_regionsfor_country_code() {
         .region(&353)
         .expect("Ireland should exist");
 }
+
+#[divan::bench]
+fn get_metadata_for_country_code_hot() {
+    let _md = phonenumber::metadata::DATABASE
+        .by_code(&353)
+        .expect("Ireland should exist");
+}
