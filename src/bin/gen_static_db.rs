@@ -1,6 +1,10 @@
-use std::collections::HashMap;
+extern crate lazy_regex;
 
-use lazy_static::__Deref;
+use std::collections::{BTreeMap, HashMap};
+use std::fmt::Write;
+use std::ops::{Deref, Range};
+
+use lazy_regex::regex;
 use phonenumber::metadata::Database;
 use regex_cache::CachedRegex;
 
@@ -13,11 +17,9 @@ fn main() {
         regions,
     } = db.clone();
 
-    let mut meta_map: HashMap<Metadata, Option<usize>> = HashMap::new();
-
     eprintln!("Converting by_id HashMap to intermediate Metadata");
 
-    let by_id: HashMap<String, Metadata> = by_id
+    let by_id: BTreeMap<String, Metadata> = by_id
         .into_iter()
         .map(|(country_id, metadata)| {
             let m = metadata.deref().clone();
@@ -28,7 +30,7 @@ fn main() {
 
     eprintln!("Converting by_code HashMap to intermediate Metadata");
 
-    let by_code: HashMap<u16, Vec<Metadata>> = by_code
+    let by_code: BTreeMap<u16, Vec<Metadata>> = by_code
         .into_iter()
         .map(|(country_code, metadata_list)| {
             let metadata_list = metadata_list
@@ -40,66 +42,150 @@ fn main() {
         })
         .collect();
 
-    eprintln!("Parsing by_id HashMap");
+    let regions: BTreeMap<u16, Vec<String>> = regions.into_iter().collect();
 
-    for meta in by_id.values() {
-        meta_map.insert(meta.clone(), None);
-    }
+    let (by_id, by_code) = print_metadata_cache(by_id, by_code);
+    // print_metadata_for_country_id_linear_str_match(by_id, &meta_map);
+    print_metadata_for_country_id_nested_byte_match(by_id);
+    print_metadata_for_country_code(by_code);
+    print_regions_for_country_code(regions);
+}
 
-    for meta_list in by_code.values() {
-        for meta in meta_list {
-            meta_map.insert(meta.clone(), None);
-        }
-    }
+fn print_metadata_cache(
+    by_id: BTreeMap<String, Metadata>,
+    by_code: BTreeMap<u16, Vec<Metadata>>,
+) -> (BTreeMap<String, usize>, BTreeMap<u16, Range<usize>>) {
+    eprintln!("Print metadata cache");
 
-    println!("const METADATA: [Metadata; {}] = [", meta_map.len());
+    let mut meta_cache = HashMap::<Metadata, usize>::new();
+    let mut index = 0;
+    let mut buf = String::new();
 
-    for (i, (metadata, index)) in meta_map.iter_mut().enumerate() {
-        index.replace(i);
-        println!("    {metadata:#?},");
-    }
+    let by_code_indexed = by_code
+        .into_iter()
+        .map(|(country_code, metadata_list)| {
+            let start = index;
+            for metadata in metadata_list {
+                write!(buf, "    {metadata:#?},\n").expect("write failed");
+                meta_cache.insert(metadata, index);
+                index = index + 1;
+            }
+            let end = index;
+            (country_code, start..end)
+        })
+        .collect();
 
+    let by_id_indexed = by_id
+        .into_iter()
+        .map(|(country_id, metadata)| {
+            let meta_index = if let Some(i) = meta_cache.get(&metadata) {
+                *i
+            } else {
+                write!(buf, "    {metadata:#?},\n").expect("write failed");
+                meta_cache.insert(metadata, index);
+                index = index + 1;
+                index
+            };
+
+            (country_id, meta_index)
+        })
+        .collect();
+
+    println!("const METADATA: [Metadata; {}] = [", meta_cache.len());
+    println!("{buf}");
     println!("];\n");
 
-    eprintln!("Sorting by_code HashMap");
+    (by_id_indexed, by_code_indexed)
+}
 
-    let mut by_id: Vec<(String, Metadata)> = by_id.into_iter().collect();
-    by_id.sort_unstable_by_key(|(country_id, _)| country_id.clone());
-
+fn print_metadata_for_country_id_linear_str_match(by_id: BTreeMap<String, usize>) {
     println!("pub fn metadata_for_country_id(country_id: &str) -> Option<&'static Metadata> {{");
     println!("    match country_id {{");
 
-    for (country_id, metadata) in by_id {
-        let meta_index = meta_map[&metadata].expect("Index should exist");
-        println!("        {country_id:?} => Some(&METADATA[{meta_index:?}]),",);
+    for (country_id, index) in by_id {
+        println!("        {country_id:?} => Some(&METADATA[{index:?}]),",);
     }
 
     println!("        _ => None");
     println!("    }}");
     println!("}}\n");
+}
 
-    let mut by_code: Vec<(u16, Vec<Metadata>)> = by_code.into_iter().collect();
-    by_code.sort_unstable_by_key(|(country_code, _)| country_code.clone());
+fn print_metadata_for_country_id_nested_byte_match(by_id: BTreeMap<String, usize>) {
+    let (alphabetic, numerical): (Vec<_>, Vec<_>) = by_id
+        .into_iter()
+        .partition(|(id, _index)| id.chars().all(|c| c.is_ascii_alphabetic()));
 
+    assert_eq!(
+        numerical.len(),
+        1,
+        "Expecting only one numerical code `001`"
+    );
+
+    let mut alpha_map: BTreeMap<u8, Vec<(u8, usize)>> = BTreeMap::new();
+
+    for (id, index) in alphabetic {
+        let bytes = id.as_bytes();
+        let first_byte = bytes[0];
+        let second_byte = bytes[1];
+        let chars = alpha_map.entry(first_byte).or_insert_with(Vec::new);
+        chars.push((second_byte, index));
+    }
+
+    println!("pub fn metadata_for_country_id(country_id: &str) -> Option<&'static Metadata> {{");
+    println!("    let bytes = country_id.as_bytes();\n");
+    println!("    if bytes.len() < 2 || bytes.len() > 3 {{");
+    println!("        return None;");
+    println!("    }}\n");
+
+    println!("    if bytes == b\"001\" {{");
+    println!("        return Some(&METADATA[{}]);", numerical[0].1);
+    println!("    }}\n");
+
+    println!("    match bytes[0] {{");
+
+    for (first_byte, post) in alpha_map {
+        println!("        b{:?} => match bytes[1] {{", char::from(first_byte));
+        for (second_byte, meta_index) in post {
+            println!(
+                "            b{:?} => Some(&METADATA[{meta_index:?}]),",
+                char::from(second_byte)
+            );
+        }
+        println!("            _ => None,");
+        println!("        }}");
+    }
+
+    println!("        _ => None");
+    println!("    }}");
+    println!("}}\n");
+}
+
+fn print_metadata_for_country_code(by_code: BTreeMap<u16, Range<usize>>) {
     println!("pub fn metadata_for_country_code(country_code: u16) -> Option<&'static [&'static Metadata]> {{");
     println!("    match country_code {{");
-    for (country_code, metadata_list) in by_code {
-        print!("        {:?} => Some(&[", country_code);
+    for (country_code, index_range) in by_code {
+        if index_range.end - index_range.start == 1 {
+            println!(
+                "        {country_code:?} => Some(&[&METADATA[{}]]),",
+                index_range.start
+            );
+        } else {
+            print!("        {country_code:?} => Some(&[");
 
-        for metadata in metadata_list {
-            let meta_index = meta_map[&metadata].expect("Index should exist");
-            print!("&METADATA[{meta_index}], ");
+            for i in index_range {
+                print!("&METADATA[{i}], ")
+            }
+
+            println!("]),");
         }
-
-        println!("]),")
     }
     println!("        _ => None");
     println!("    }}");
     println!("}}\n");
+}
 
-    let mut regions: Vec<(u16, Vec<String>)> = regions.into_iter().collect();
-    regions.sort_unstable_by_key(|v| v.0);
-
+fn print_regions_for_country_code(regions: BTreeMap<u16, Vec<String>>) {
     println!(
         "pub fn regions_for_country_code(country_code: u16) -> Option<&'static [&'static str]> {{"
     );
@@ -113,8 +199,7 @@ fn main() {
 }
 
 #[derive(Clone, Debug, Hash, PartialEq, Eq, PartialOrd, Ord)]
-pub struct Metadata {
-    descriptors: Descriptors,
+struct Metadata {
     id: String,
     country_code: u16,
 
@@ -130,11 +215,19 @@ pub struct Metadata {
     main_country_for_code: bool,
     leading_digits: Option<String>,
     mobile_number_portable: bool,
+
+    descriptors: Descriptors,
+}
+
+struct MetdataRegex {
+    pub international_prefix: Option<CachedRegex>,
+    pub national_prefix_for_parsing: Option<CachedRegex>,
+    pub leading_digits: Option<CachedRegex>,
 }
 
 /// Descriptors for various types of phone number.
 #[derive(Clone, Debug, Hash, PartialEq, Eq, PartialOrd, Ord)]
-pub struct Descriptors {
+struct Descriptors {
     general: Descriptor,
     fixed_line: Option<Descriptor>,
     mobile: Option<Descriptor>,
@@ -154,7 +247,7 @@ pub struct Descriptors {
 }
 
 #[derive(Clone, Debug, Hash, PartialEq, Eq, PartialOrd, Ord)]
-pub struct Descriptor {
+struct Descriptor {
     national_number: String,
 
     possible_length: Vec<u16>,
@@ -165,7 +258,7 @@ pub struct Descriptor {
 
 /// Description of a phone number format.
 #[derive(Clone, Debug, Hash, PartialEq, Eq, PartialOrd, Ord)]
-pub struct Format {
+struct Format {
     pattern: String,
     format: String,
 

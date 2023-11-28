@@ -21,6 +21,11 @@ test = false
 bench = false
 
 [[bin]]
+name = "test_old_new_db"
+test = false
+bench = false
+
+[[bin]]
 name = "load_hashmap_db"
 test = false
 bench = false
@@ -35,8 +40,10 @@ bincode = "1.3"
 either = "1.8"
 fnv = "1.0"
 itertools = ">=0.10, <=0.11"
+lazy-regex = "3.1.0"
 lazy_static = "1.4"
 nom = "7.1"
+once_cell = "1.18.0"
 quick-xml = "0.28"
 regex = "1.7"
 regex-cache = "0.2"
